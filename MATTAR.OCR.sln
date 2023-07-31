@@ -5,7 +5,12 @@ VisualStudioVersion = 17.6.33801.468
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MATTAR.OCR", "src\MATTAR.OCR.csproj", "{B5ABD19E-7902-4820-A399-6004E8FF0919}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MATTAR.OCR.Tests", "MATTAR.OCR.Tests\MATTAR.OCR.Tests.csproj", "{EE32589E-17FC-4CFB-92DD-BA4045186B1F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MATTAR.OCR.Tests", "MATTAR.OCR.Tests\MATTAR.OCR.Tests.csproj", "{EE32589E-17FC-4CFB-92DD-BA4045186B1F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Éléments de solution", "Éléments de solution", "{A45C0259-35E7-4DAB-BF1E-3D70DEECA8BA}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
