@@ -24,9 +24,9 @@
 
 - **PDF → Text**: Convert a multi-page PDF document directly to a plain-text string.
 - **PDF → Images**: Rasterise each page of a PDF to a high-resolution PNG file (300 DPI).
-- **Single-page PDF → Image**: Convert a single PDF to a PNG using Ghostscript's advanced rendering pipeline.
+- **Single-page PDF → Image**: Convert a single PDF to a PNG using PDFium's rendering pipeline.
 - **Cross-architecture support**: Bundled Tesseract native libraries for both `x86` and `x64` environments.
-- **Cross-platform**: Detects Windows and Linux at runtime and selects the appropriate Ghostscript DLL automatically.
+- **Cross-platform**: Works on Windows, Linux, and macOS (x64/arm64) with no manual DLL setup required.
 - **Dependency-injection friendly**: All services are backed by interfaces (`IPdfToTextService`, `IPdfToImageService`, `IOCRPath`) and accept constructor injection.
 
 ---
@@ -37,9 +37,9 @@
 |---|---|
 | Language | C# 11 / .NET 7.0 |
 | OCR engine | [Tesseract 5.2.0](https://www.nuget.org/packages/Tesseract/) |
-| PDF rasterisation | [Ghostscript.NET 1.2.3](https://www.nuget.org/packages/Ghostscript.NET/) |
+| PDF rasterisation | [PDFtoImage 4.0.0](https://www.nuget.org/packages/PDFtoImage/) (MIT — powered by PDFium) |
 | PDF utilities | [PdfSharpCore 1.3.57](https://www.nuget.org/packages/PdfSharpCore/), [PdfPig 0.1.8](https://www.nuget.org/packages/PdfPig/) |
-| Image handling | [System.Drawing.Common 7.0.0](https://www.nuget.org/packages/System.Drawing.Common/) |
+| Image encoding | [SkiaSharp 2.88.x](https://www.nuget.org/packages/SkiaSharp/) (MIT) |
 | Testing | [NUnit 3.13.3](https://www.nuget.org/packages/NUnit/) |
 | CI / CD | GitHub Actions → NuGet publish |
 
@@ -64,8 +64,9 @@ Install-Package MATTAR.OCR
 | Requirement | Notes |
 |---|---|
 | **.NET 7.0 SDK** | [Download](https://dotnet.microsoft.com/download/dotnet/7.0) |
-| **Ghostscript** | Native DLLs (`gsdll32.dll` / `gsdll64.dll`) must be placed in a `DLLs/` subfolder under your application's root path (see [Configuration](#configuration)). |
 | **Tesseract language data** | A `tessdata/` directory containing the desired language data files (e.g. `fra.traineddata`) must exist under your application's root path. Download language packs from the [tessdata repository](https://github.com/tesseract-ocr/tessdata). |
+
+> **No Ghostscript required.** PDF rasterisation is handled by [PDFtoImage](https://www.nuget.org/packages/PDFtoImage/) (backed by PDFium), whose native assets are automatically included via NuGet for Windows, Linux, and macOS. There is no `DLLs/` directory to manage.
 
 ---
 
@@ -80,7 +81,7 @@ using MATTAR.OCR.Interfaces;
 
 public class MyOCRPath : IOCRPath
 {
-    // Root path – must contain the DLLs/ and tessdata/ subdirectories
+    // Root path – must contain the tessdata/ subdirectory
     public string GetRootPath() => AppContext.BaseDirectory;
 
     // Temporary path – used to store intermediate image files
@@ -132,9 +133,6 @@ Console.WriteLine($"Image saved to: {imagePath}");
 
 ```
 <root path>/
-├── DLLs/
-│   ├── gsdll32.dll   # Ghostscript 32-bit (Windows or Linux)
-│   └── gsdll64.dll   # Ghostscript 64-bit (Windows or Linux)
 └── tessdata/
     └── fra.traineddata  # Tesseract language data (French by default)
 
@@ -157,7 +155,7 @@ Console.WriteLine($"Image saved to: {imagePath}");
 MATTAR.OCR/
 ├── src/
 │   ├── MATTAR.OCR.csproj          # Library project file (.NET 7.0)
-│   ├── PdfToImageService.cs       # Converts PDF pages to PNG images (Ghostscript)
+│   ├── PdfToImageService.cs       # Converts PDF pages to PNG images (PDFtoImage/PDFium)
 │   ├── PdfToTextService.cs        # Converts PDF to text via image pipeline (Tesseract)
 │   └── Interfaces/
 │       ├── IOCRPath.cs            # Path abstraction (root + temp paths)
