@@ -5,9 +5,9 @@ name: .NET
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "**" ]
 
 jobs:
   build:
@@ -15,22 +15,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: 7.0.x
     - name: Restore dependencies
       run: dotnet restore
-      working-directory: ./src/
     - name: Build
       run: dotnet build --no-restore
-      working-directory: ./src/
     - name: Test
-      run: dotnet test --no-build --verbosity normal
-      working-directory: ./src/
-    - name: Publish
-      uses: brandedoutcast/publish-nuget@v2.5.2
-      with:
-        PROJECT_FILE_PATH: src/MATTAR.OCR.csproj
-        NUGET_KEY: ${{secrets.NUGET_API_KEY}}
+      run: dotnet test --verbosity normal
+    - name: Pack
+      run: dotnet pack src/MATTAR.OCR.csproj --configuration Release --output ./nupkgs
+      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    - name: Publish to NuGet
+      run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
