@@ -17,15 +17,19 @@ namespace MATTAR.OCR
         {
             var result = new List<string>();
             string outImageName = Path.GetFileNameWithoutExtension(pdfFilePath);
+            string tempDir = _path.GetTempPath();
 
-            using var stream = File.OpenRead(pdfFilePath);
-            int pageCount = Conversion.GetPageCount(stream);
+            int pageCount;
+            using (var countStream = File.OpenRead(pdfFilePath))
+            {
+                pageCount = Conversion.GetPageCount(countStream);
+            }
 
             for (int i = 0; i < pageCount; i++)
             {
-                stream.Position = 0;
+                using var stream = File.OpenRead(pdfFilePath);
                 using SKBitmap bitmap = Conversion.ToImage(stream, page: i, options: new RenderOptions(Dpi: 300));
-                string pagePath = $"{outImageName}_page{i + 1}.png";
+                string pagePath = Path.Combine(tempDir, $"{outImageName}_page{i + 1}.png");
                 using var image = SKImage.FromBitmap(bitmap);
                 using var data = image.Encode(SKEncodedImageFormat.Png, 100);
                 File.WriteAllBytes(pagePath, data.ToArray());
