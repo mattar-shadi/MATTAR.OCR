@@ -1,9 +1,6 @@
-using Ghostscript.NET;
-using Ghostscript.NET.Rasterizer;
+using PDFtoImage;
 using MATTAR.OCR.Interfaces;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
+using SkiaSharp;
 
 namespace MATTAR.OCR
 {
@@ -19,51 +16,23 @@ namespace MATTAR.OCR
         public List<string> ConvertToImages(string pdfFilePath)
         {
             var result = new List<string>();
-            string pathFile = Path.Combine(pdfFilePath);
-            string outImageName = Path.GetFileNameWithoutExtension(pathFile);
+            string outImageName = Path.GetFileNameWithoutExtension(pdfFilePath);
 
-            GhostscriptVersionInfo gvi = GetGhostscriptVersionInfo();
-            using (var rasterizer = new GhostscriptRasterizer())
+            using var stream = File.OpenRead(pdfFilePath);
+            int pageCount = Conversion.GetPageCount(stream);
+
+            for (int i = 0; i < pageCount; i++)
             {
-                rasterizer.Open(pathFile, gvi, true);
-                for (int i = 1; i <= rasterizer.PageCount; i++)
-                {
-                    Image image = rasterizer.GetPage(300, i);
-                    string pagePath = Path.Combine($"{outImageName}_page{i}.png");
-                    image.Save(pagePath, ImageFormat.Png);
-                    result.Add(pagePath);
-                }
+                stream.Position = 0;
+                using SKBitmap bitmap = Conversion.ToImage(stream, page: i, options: new RenderOptions(Dpi: 300));
+                string pagePath = $"{outImageName}_page{i + 1}.png";
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                File.WriteAllBytes(pagePath, data.ToArray());
+                result.Add(pagePath);
             }
 
             return result;
-        }
-
-        private GhostscriptVersionInfo GetGhostscriptVersionInfo()
-        {
-            string contentDllPath = Path.Combine(_path.GetRootPath(), "DLLs");
-            GhostscriptVersionInfo gvi;
-            if (IntPtr.Size== 4 && RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                gvi = new GhostscriptVersionInfo(Path.Combine(contentDllPath, "gsdll32.dll"));
-            }
-            else if (IntPtr.Size== 8 && RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                gvi = new GhostscriptVersionInfo(Path.Combine(contentDllPath, "gsdll64.dll"));
-            }
-            else if (IntPtr.Size== 4 && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                gvi = new GhostscriptVersionInfo(Path.Combine(contentDllPath, "gsdll32.dll"));
-            }
-            else if (IntPtr.Size== 8 && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                gvi = new GhostscriptVersionInfo(Path.Combine(contentDllPath, "gsdll64.dll"));
-            }
-            else
-            {
-                throw new NotImplementedException("Os Not know.");
-            }
-
-            return gvi;
         }
 
         public string ConvertToImage(string InputPDFFile)
@@ -72,22 +41,11 @@ namespace MATTAR.OCR
             string outImageName = Path.GetFileNameWithoutExtension(pathFile);
             string imgPath = Path.Combine(_path.GetRootPath(), $"{outImageName}.png");
 
-            GhostscriptVersionInfo gvi = GetGhostscriptVersionInfo();
-            using (var rasterizer = new GhostscriptRasterizer())
-            {
-                rasterizer.Open(pathFile, gvi, true);
-
-                var dev = new GhostscriptPngDevice(GhostscriptPngDeviceType.Png256);
-                dev.GraphicsAlphaBits = GhostscriptImageDeviceAlphaBits.V_4;
-                dev.TextAlphaBits = GhostscriptImageDeviceAlphaBits.V_4;
-                dev.ResolutionXY = new GhostscriptImageDeviceResolution(290, 290);
-                dev.InputFiles.Add(pathFile);
-                dev.Pdf.FirstPage = 1;
-                dev.Pdf.LastPage = rasterizer.PageCount;
-                dev.CustomSwitches.Add("-dDOINTERPOLATE");
-                dev.OutputPath = imgPath;
-                dev.Process();
-            }
+            using var stream = File.OpenRead(pathFile);
+            using SKBitmap bitmap = Conversion.ToImage(stream, page: 0, options: new RenderOptions(Dpi: 290));
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(imgPath, data.ToArray());
 
             return imgPath;
         }
