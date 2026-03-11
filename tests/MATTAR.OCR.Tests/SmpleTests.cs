@@ -3,9 +3,9 @@ namespace MATTAR.OCR.Tests
     [TestFixture]
     public class SmpleTests
     {
-        IPdfToImageService _pdfToImageService;
-        IPdfToTextService _pdfToTextService;
-        TestOCRPath _rootPath;
+        IPdfToImageService _pdfToImageService = default!;
+        IPdfToTextService _pdfToTextService = default!;
+        TestOCRPath _rootPath = default!;
 
         [SetUp]
         public void Setup()
