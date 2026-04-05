@@ -1,8 +1,8 @@
 # MATTAR.OCR
 
-![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet) ![NuGet](https://img.shields.io/nuget/v/MATTAR.OCR?logo=nuget) ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet) ![NuGet](https://img.shields.io/nuget/v/MATTAR.OCR?logo=nuget) ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-**MATTAR.OCR** is a C# .NET 8 library that extracts text from PDF documents and images using either the Tesseract OCR engine or an open-source Hugging Face model (TrOCR). It solves the common need to programmatically read and digitise scanned PDFs or raster images by providing a clean, interface-driven API that integrates easily into any .NET application.
+**MATTAR.OCR** is a C# .NET 10 library that extracts text from PDF documents and images using either the Tesseract OCR engine or an open-source Hugging Face model (TrOCR). It solves the common need to programmatically read and digitise scanned PDFs or raster images by providing a clean, interface-driven API that integrates easily into any .NET application.
 
 ---
 
@@ -25,9 +25,9 @@
 - **PDF → Text**: Convert a multi-page PDF document directly to a plain-text string.
 - **PDF → Images**: Rasterise each page of a PDF to a high-resolution PNG file (300 DPI).
 - **Single-page PDF → Image**: Convert a single PDF to a PNG using PDFium's rendering pipeline.
-- **Dual OCR engines**: Choose between [Tesseract 5](https://github.com/tesseract-ocr/tesseract) (default, no extra setup) and a Hugging Face open-source model ([TrOCR](https://huggingface.co/microsoft/trocr-base-printed)) running via [ONNX Runtime](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/) — **no Python required at runtime**.
+- **Dual OCR engines**: Choose between [Tesseract 5](https://github.com/tesseract-ocr/tesseract) (default, no extra setup) and a Hugging Face open-source model ([TrOCR](https://huggingface.co/onnx-community/trocr-base-stage1-ONNX)) running via [ONNX Runtime](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/) — **no Python required at runtime**.
 - **Engine selection at runtime**: Use `OcrEngine` enum and `PdfToTextServiceFactory` to switch engines without code changes.
-- **Pre-exported ONNX models**: TrOCR model files are exported once using Hugging Face Optimum and then loaded directly in C# — deterministic, version-controlled, and fully offline.
+- **Automatic model download**: `TrOcrModelDownloader` downloads the pre-exported ONNX files directly from [Hugging Face Hub](https://huggingface.co/onnx-community/trocr-base-stage1-ONNX) with progress reporting, skip-if-exists, and cancellation support — no Python, no manual export step.
 - **Cross-architecture support**: Bundled Tesseract native libraries for both `x86` and `x64` environments.
 - **Cross-platform**: Works on Windows, Linux, and macOS (x64/arm64) with no manual DLL setup required.
 - **Dependency-injection friendly**: All services are backed by interfaces (`IPdfToTextService`, `IPdfToImageService`, `IOCRPath`) and accept constructor injection.
@@ -38,13 +38,13 @@
 
 | Layer | Technology |
 |---|---|
-| Language | C# 11 / .NET 8.0 |
+| Language | C# 14 / .NET 10.0 |
 | OCR engine (default) | [Tesseract 5.2.0](https://www.nuget.org/packages/Tesseract/) |
-| OCR engine (optional) | [Hugging Face TrOCR](https://huggingface.co/microsoft/trocr-base-printed) via [ONNX Runtime 1.20](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/) (pure C#, no Python at runtime) |
-| PDF rasterisation | [PDFtoImage 4.0.0](https://www.nuget.org/packages/PDFtoImage/) (MIT — powered by PDFium) |
-| PDF utilities | [PdfSharpCore 1.3.57](https://www.nuget.org/packages/PdfSharpCore/), [PdfPig 0.1.8](https://www.nuget.org/packages/PdfPig/) |
-| Image encoding | [SkiaSharp 2.88.x](https://www.nuget.org/packages/SkiaSharp/) (MIT) |
-| Testing | [NUnit 3.13.3](https://www.nuget.org/packages/NUnit/) |
+| OCR engine (optional) | [onnx-community/trocr-base-stage1-ONNX](https://huggingface.co/onnx-community/trocr-base-stage1-ONNX) via [ONNX Runtime 1.24.4](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/) (pure C#, no Python at runtime) |
+| PDF rasterisation | [PDFtoImage 5.2.0](https://www.nuget.org/packages/PDFtoImage/) (MIT — powered by PDFium) |
+| PDF utilities | [PdfSharpCore 1.3.67](https://www.nuget.org/packages/PdfSharpCore/), [PdfPig 0.1.14](https://www.nuget.org/packages/PdfPig/) |
+| Image encoding | [SkiaSharp 3.119.2](https://www.nuget.org/packages/SkiaSharp/) (MIT) |
+| Testing | [NUnit 4.5.1](https://www.nuget.org/packages/NUnit/) |
 | CI / CD | GitHub Actions → NuGet publish |
 
 ---
@@ -67,9 +67,9 @@ Install-Package MATTAR.OCR
 
 | Requirement | Notes |
 |---|---|
-| **.NET 8.0 SDK** | [Download](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| **.NET 10.0 SDK** | [Download](https://dotnet.microsoft.com/download/dotnet/10.0) |
 | **Tesseract language data** | A `tessdata/` directory containing the desired language data files (e.g. `fra.traineddata`) must exist under your application's root path. Download language packs from the [tessdata repository](https://github.com/tesseract-ocr/tessdata). Required only for the Tesseract engine. |
-| **ONNX model files** *(optional)* | Required only for `OcrEngine.HuggingFace`. See [Hugging Face Engine Setup](#hugging-face-engine-setup) below. No Python at runtime. |
+| **ONNX model files** *(optional)* | Required only for `OcrEngine.HuggingFace`. Use `TrOcrModelDownloader.EnsureModelAsync()` to download them automatically — no Python required. See [Hugging Face Engine Setup](#hugging-face-engine-setup). |
 
 > **No Ghostscript required.** PDF rasterisation is handled by [PDFtoImage](https://www.nuget.org/packages/PDFtoImage/) (backed by PDFium), whose native assets are automatically included via NuGet for Windows, Linux, and macOS. There is no `DLLs/` directory to manage.
 
@@ -144,6 +144,56 @@ IPdfToTextService hf = new HuggingFaceOcrService(
     modelDirectory: "/models/trocr-large-printed");
 ```
 
+### 2c. Download the ONNX model automatically
+
+Call `TrOcrModelDownloader.EnsureModelAsync` once at application startup (or on first use).
+Files that already exist on disk are silently skipped.
+
+```csharp
+using MATTAR.OCR;
+
+// Minimal – no progress output
+await TrOcrModelDownloader.EnsureModelAsync("./trocr-onnx");
+```
+
+With a progress callback:
+
+```csharp
+await TrOcrModelDownloader.EnsureModelAsync(
+    modelDirectory: "./trocr-onnx",
+    progress: new Progress<TrOcrDownloadProgress>(p =>
+    {
+        if (p.Status == TrOcrDownloadStatus.Skipped)
+            Console.WriteLine($"[{p.FileIndex}/{p.TotalFiles}] {p.FileName} — already present");
+        else
+            Console.Write($"\r[{p.FileIndex}/{p.TotalFiles}] {p.FileName}  {p.Percent:F0} %   ");
+
+        if (p.Status == TrOcrDownloadStatus.Completed)
+            Console.WriteLine();
+    }));
+```
+
+With DI (`IHttpClientFactory`) and cancellation:
+
+```csharp
+await TrOcrModelDownloader.EnsureModelAsync(
+    modelDirectory: "./trocr-onnx",
+    httpClient: httpClientFactory.CreateClient(),
+    cancellationToken: stoppingToken);
+```
+
+`TrOcrDownloadProgress` properties:
+
+| Property | Type | Description |
+|---|---|---|
+| `FileName` | `string` | Name of the file being downloaded |
+| `FileIndex` | `int` | 1-based index of the current file |
+| `TotalFiles` | `int` | Total number of files to download (3) |
+| `BytesReceived` | `long` | Bytes received so far |
+| `TotalBytes` | `long` | Total file size, or −1 if unknown |
+| `Percent` | `double` | 0–100, or −1 if total size is unknown |
+| `Status` | `TrOcrDownloadStatus` | `Downloading` / `Completed` / `Skipped` |
+
 ### 3. Convert a PDF to a list of page images
 
 ```csharp
@@ -187,25 +237,24 @@ Console.WriteLine($"Image saved to: {imagePath}");
 
 ### Hugging Face Engine Setup
 
-The Hugging Face engine runs entirely in-process using **ONNX Runtime** — no Python is needed
-at runtime.  The one-time model export step requires Python and the `optimum` package:
+The Hugging Face engine runs entirely in-process using **ONNX Runtime** — no Python is
+needed, not even for the initial model download.
 
-1. **Export the TrOCR model to ONNX** (run once on any machine with Python available):
+Call `TrOcrModelDownloader.EnsureModelAsync` once before using the engine:
 
-   ```bash
-   pip install optimum[exporters]
-   optimum-cli export onnx --model microsoft/trocr-base-printed ./trocr-onnx/
-   ```
+```csharp
+// Downloads encoder_model.onnx, decoder_model.onnx and vocab.json
+// from https://huggingface.co/onnx-community/trocr-base-stage1-ONNX
+await TrOcrModelDownloader.EnsureModelAsync(
+    modelDirectory: Path.Combine(ocrPath.GetRootPath(), "trocr-onnx"));
 
-   This creates `encoder_model.onnx`, `decoder_model.onnx`, `vocab.json`, and other
-   vocabulary files in `./trocr-onnx/`.
+IPdfToTextService hf = PdfToTextServiceFactory.Create(
+    ocrPath, pdfToImage, OcrEngine.HuggingFace);
+```
 
-2. **Place the `trocr-onnx/` directory** under the path returned by
-   `IOCRPath.GetRootPath()` (or pass its absolute path as `modelDirectory` to
-   `HuggingFaceOcrService` / `PdfToTextServiceFactory.Create`).
-
-3. **The library loads and runs the model entirely via ONNX Runtime** — no Python process
-   is spawned at inference time.
+The three files are saved under `modelDirectory` and reused on subsequent runs (already-
+present files are never re-downloaded). See [§ 2c](#2c-download-the-onnx-model-automatically)
+for the full progress-reporting and DI examples.
 
 #### GPU acceleration (optional)
 
@@ -245,10 +294,11 @@ All listed models are released under the **MIT licence**.
 ```
 MATTAR.OCR/
 ├── src/
-│   ├── MATTAR.OCR.csproj          # Library project file (.NET 8.0)
+│   ├── MATTAR.OCR.csproj          # Library project file (.NET 10.0)
 │   ├── PdfToImageService.cs       # Converts PDF pages to PNG images (PDFtoImage/PDFium)
 │   ├── PdfToTextService.cs        # Converts PDF to text via image pipeline (Tesseract)
 │   ├── HuggingFaceOcrService.cs   # Converts PDF to text via TrOCR ONNX Runtime (native C#, no Python)
+│   ├── TrOcrModelDownloader.cs    # Downloads TrOCR ONNX files from Hugging Face Hub with progress reporting
 │   ├── PdfToTextServiceFactory.cs # Factory: creates the right IPdfToTextService for OcrEngine
 │   └── Interfaces/
 │       ├── IOCRPath.cs            # Path abstraction (root + temp paths)
@@ -284,7 +334,7 @@ MATTAR.OCR/
 git clone https://github.com/mattar-shadi/MATTAR.OCR.git
 cd MATTAR.OCR
 
-# Restore NuGet packages
+# Restore NuGet packages (.NET 10 SDK required)
 dotnet restore src/
 
 # Build (Debug)
