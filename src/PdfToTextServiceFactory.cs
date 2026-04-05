@@ -12,15 +12,14 @@ namespace MATTAR.OCR
     /// // Tesseract (default)
     /// var svc = PdfToTextServiceFactory.Create(ocrPath, pdfToImage);
     ///
-    /// // Hugging Face TrOCR
+    /// // Hugging Face TrOCR (ONNX — no Python required)
     /// var svc = PdfToTextServiceFactory.Create(ocrPath, pdfToImage, OcrEngine.HuggingFace);
     ///
-    /// // Hugging Face with a custom model and non-default Python interpreter
+    /// // Hugging Face with a custom model directory
     /// var svc = PdfToTextServiceFactory.Create(
     ///     ocrPath, pdfToImage,
     ///     engine: OcrEngine.HuggingFace,
-    ///     pythonExecutable: "python3",
-    ///     huggingFaceModelId: "microsoft/trocr-large-printed");
+    ///     huggingFaceModelDirectory: "/models/trocr-large");
     /// </code>
     /// </example>
     public static class PdfToTextServiceFactory
@@ -32,33 +31,29 @@ namespace MATTAR.OCR
         /// <param name="pdfToImage">PDF-to-image conversion service.</param>
         /// <param name="engine">
         ///   Which OCR engine to use.  Defaults to <see cref="OcrEngine.Tesseract"/>.
-        ///   When <see cref="OcrEngine.Auto"/> is specified, Tesseract is used unless a Python
-        ///   interpreter can be located on the system PATH, in which case the Hugging Face engine
-        ///   is preferred.
+        ///   When <see cref="OcrEngine.Auto"/> is specified, the Hugging Face engine is used
+        ///   when the ONNX model files are found in <paramref name="huggingFaceModelDirectory"/>;
+        ///   otherwise Tesseract is used.
         /// </param>
-        /// <param name="pythonExecutable">
-        ///   Python interpreter name or full path (default: <c>python</c>).
+        /// <param name="huggingFaceModelDirectory">
+        ///   Directory that contains the exported ONNX model files
+        ///   (<c>encoder_model.onnx</c>, <c>decoder_model.onnx</c>, <c>vocab.json</c>).
+        ///   Defaults to <c>&lt;rootPath&gt;/trocr-onnx/</c>.
         ///   Only used when <paramref name="engine"/> is <see cref="OcrEngine.HuggingFace"/> or
         ///   <see cref="OcrEngine.Auto"/>.
-        /// </param>
-        /// <param name="huggingFaceModelId">
-        ///   Hugging Face model repository ID used by the Hugging Face engine
-        ///   (default: <c>microsoft/trocr-base-printed</c>).
         /// </param>
         public static IPdfToTextService Create(
             IOCRPath path,
             IPdfToImageService pdfToImage,
             OcrEngine engine = OcrEngine.Tesseract,
-            string pythonExecutable = "python",
-            string huggingFaceModelId = "microsoft/trocr-base-printed")
+            string? huggingFaceModelDirectory = null)
         {
             return engine switch
             {
-                OcrEngine.Tesseract => new PdfToTextService(path, pdfToImage),
-                OcrEngine.HuggingFace => new HuggingFaceOcrService(
-                    path, pdfToImage, pythonExecutable, huggingFaceModelId),
-                OcrEngine.Auto => IsPythonAvailable(pythonExecutable)
-                    ? new HuggingFaceOcrService(path, pdfToImage, pythonExecutable, huggingFaceModelId)
+                OcrEngine.Tesseract    => new PdfToTextService(path, pdfToImage),
+                OcrEngine.HuggingFace  => new HuggingFaceOcrService(path, pdfToImage, huggingFaceModelDirectory),
+                OcrEngine.Auto         => IsOnnxModelAvailable(path, huggingFaceModelDirectory)
+                    ? new HuggingFaceOcrService(path, pdfToImage, huggingFaceModelDirectory)
                     : new PdfToTextService(path, pdfToImage),
                 _ => throw new ArgumentOutOfRangeException(nameof(engine), engine, null)
             };
@@ -67,39 +62,15 @@ namespace MATTAR.OCR
         // ------------------------------------------------------------------ helpers
 
         /// <summary>
-        /// Returns <c>true</c> when the given Python executable can be found on the system PATH.
+        /// Returns <c>true</c> when the required ONNX model files exist in the model directory.
         /// </summary>
-        private static bool IsPythonAvailable(string pythonExecutable)
+        private static bool IsOnnxModelAvailable(IOCRPath path, string? modelDirectory)
         {
-            try
-            {
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = pythonExecutable,
-                    ArgumentList = { "--version" },
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var proc = System.Diagnostics.Process.Start(psi);
-                if (proc is null)
-                    return false;
-
-                bool exited = proc.WaitForExit(3000);
-                if (!exited)
-                {
-                    try { proc.Kill(); } catch { /* best-effort */ }
-                    return false;
-                }
-
-                return proc.ExitCode == 0;
-            }
-            catch
-            {
-                return false;
-            }
+            string dir = modelDirectory ?? Path.Combine(path.GetRootPath(), "trocr-onnx");
+            return File.Exists(Path.Combine(dir, "encoder_model.onnx"))
+                && File.Exists(Path.Combine(dir, "decoder_model.onnx"))
+                && File.Exists(Path.Combine(dir, "vocab.json"));
         }
     }
 }
+

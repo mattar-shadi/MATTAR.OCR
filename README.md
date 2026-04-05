@@ -25,9 +25,9 @@
 - **PDF → Text**: Convert a multi-page PDF document directly to a plain-text string.
 - **PDF → Images**: Rasterise each page of a PDF to a high-resolution PNG file (300 DPI).
 - **Single-page PDF → Image**: Convert a single PDF to a PNG using PDFium's rendering pipeline.
-- **Dual OCR engines**: Choose between [Tesseract 5](https://github.com/tesseract-ocr/tesseract) (default, no Python required) and a Hugging Face open-source model ([TrOCR](https://huggingface.co/microsoft/trocr-base-printed), requires Python + `transformers`).
+- **Dual OCR engines**: Choose between [Tesseract 5](https://github.com/tesseract-ocr/tesseract) (default, no extra setup) and a Hugging Face open-source model ([TrOCR](https://huggingface.co/microsoft/trocr-base-printed)) running via [ONNX Runtime](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/) — **no Python required at runtime**.
 - **Engine selection at runtime**: Use `OcrEngine` enum and `PdfToTextServiceFactory` to switch engines without code changes.
-- **Automatic model caching**: Hugging Face model weights are downloaded and cached transparently by the `transformers` library on first use.
+- **Pre-exported ONNX models**: TrOCR model files are exported once using Hugging Face Optimum and then loaded directly in C# — deterministic, version-controlled, and fully offline.
 - **Cross-architecture support**: Bundled Tesseract native libraries for both `x86` and `x64` environments.
 - **Cross-platform**: Works on Windows, Linux, and macOS (x64/arm64) with no manual DLL setup required.
 - **Dependency-injection friendly**: All services are backed by interfaces (`IPdfToTextService`, `IPdfToImageService`, `IOCRPath`) and accept constructor injection.
@@ -40,7 +40,7 @@
 |---|---|
 | Language | C# 11 / .NET 8.0 |
 | OCR engine (default) | [Tesseract 5.2.0](https://www.nuget.org/packages/Tesseract/) |
-| OCR engine (optional) | [Hugging Face TrOCR](https://huggingface.co/microsoft/trocr-base-printed) via Python `transformers` |
+| OCR engine (optional) | [Hugging Face TrOCR](https://huggingface.co/microsoft/trocr-base-printed) via [ONNX Runtime 1.20](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/) (pure C#, no Python at runtime) |
 | PDF rasterisation | [PDFtoImage 4.0.0](https://www.nuget.org/packages/PDFtoImage/) (MIT — powered by PDFium) |
 | PDF utilities | [PdfSharpCore 1.3.57](https://www.nuget.org/packages/PdfSharpCore/), [PdfPig 0.1.8](https://www.nuget.org/packages/PdfPig/) |
 | Image encoding | [SkiaSharp 2.88.x](https://www.nuget.org/packages/SkiaSharp/) (MIT) |
@@ -69,7 +69,7 @@ Install-Package MATTAR.OCR
 |---|---|
 | **.NET 8.0 SDK** | [Download](https://dotnet.microsoft.com/download/dotnet/8.0) |
 | **Tesseract language data** | A `tessdata/` directory containing the desired language data files (e.g. `fra.traineddata`) must exist under your application's root path. Download language packs from the [tessdata repository](https://github.com/tesseract-ocr/tessdata). Required only for the Tesseract engine. |
-| **Python 3.8+** *(optional)* | Required only for `OcrEngine.HuggingFace`. See [Hugging Face Engine Setup](#hugging-face-engine-setup) below. |
+| **ONNX model files** *(optional)* | Required only for `OcrEngine.HuggingFace`. See [Hugging Face Engine Setup](#hugging-face-engine-setup) below. No Python at runtime. |
 
 > **No Ghostscript required.** PDF rasterisation is handled by [PDFtoImage](https://www.nuget.org/packages/PDFtoImage/) (backed by PDFium), whose native assets are automatically included via NuGet for Windows, Linux, and macOS. There is no `DLLs/` directory to manage.
 
@@ -120,14 +120,14 @@ using MATTAR.OCR.Interfaces;
 IOCRPath ocrPath = new MyOCRPath();
 IPdfToImageService pdfToImage = new PdfToImageService(ocrPath);
 
-// Tesseract (default – no Python required)
+// Tesseract (default – no extra files required)
 IPdfToTextService tesseract = PdfToTextServiceFactory.Create(ocrPath, pdfToImage);
 
-// Hugging Face TrOCR (requires Python + transformers)
+// Hugging Face TrOCR via ONNX Runtime (no Python required at runtime)
 IPdfToTextService hf = PdfToTextServiceFactory.Create(
     ocrPath, pdfToImage, OcrEngine.HuggingFace);
 
-// Auto – uses HuggingFace if Python is found on PATH, otherwise falls back to Tesseract
+// Auto – uses HuggingFace when ONNX model files are present, otherwise Tesseract
 IPdfToTextService auto = PdfToTextServiceFactory.Create(
     ocrPath, pdfToImage, OcrEngine.Auto);
 
@@ -135,14 +135,13 @@ string text = hf.Convert("scanned-document.pdf");
 Console.WriteLine(text);
 ```
 
-You can also instantiate `HuggingFaceOcrService` directly and pass a custom Python
-executable path or a different TrOCR model variant:
+You can also instantiate `HuggingFaceOcrService` directly and specify a custom model
+directory (e.g. for a large-print or handwritten model export):
 
 ```csharp
 IPdfToTextService hf = new HuggingFaceOcrService(
     ocrPath, pdfToImage,
-    pythonExecutable: "python3",
-    modelId: "microsoft/trocr-large-printed");
+    modelDirectory: "/models/trocr-large-printed");
 ```
 
 ### 3. Convert a PDF to a list of page images
@@ -176,46 +175,55 @@ Console.WriteLine($"Image saved to: {imagePath}");
 <root path>/
 ├── tessdata/
 │   └── fra.traineddata  # Tesseract language data (French by default)
-└── huggingface_ocr.py   # Required for the Hugging Face engine
+└── trocr-onnx/          # Required only for the Hugging Face engine
+    ├── encoder_model.onnx
+    ├── decoder_model.onnx
+    └── vocab.json
 
-<temp path>/           # Writable directory for intermediate PNG files
+<temp path>/             # Writable directory for intermediate PNG files
 ```
 
 > **Note:** The Tesseract OCR language is currently hardcoded to French (`"fra"`). To use a different language, change the language code in `PdfToTextService.cs` and provide the corresponding `.traineddata` file in `tessdata/`.
 
 ### Hugging Face Engine Setup
 
-1. **Install Python dependencies** (only needed for `OcrEngine.HuggingFace`):
+The Hugging Face engine runs entirely in-process using **ONNX Runtime** — no Python is needed
+at runtime.  The one-time model export step requires Python and the `optimum` package:
+
+1. **Export the TrOCR model to ONNX** (run once on any machine with Python available):
 
    ```bash
-   pip install -r requirements.txt
+   pip install optimum[exporters]
+   optimum-cli export onnx --model microsoft/trocr-base-printed ./trocr-onnx/
    ```
 
-   Or install manually:
+   This creates `encoder_model.onnx`, `decoder_model.onnx`, `vocab.json`, and other
+   vocabulary files in `./trocr-onnx/`.
 
-   ```bash
-   pip install transformers torch torchvision Pillow
-   ```
+2. **Place the `trocr-onnx/` directory** under the path returned by
+   `IOCRPath.GetRootPath()` (or pass its absolute path as `modelDirectory` to
+   `HuggingFaceOcrService` / `PdfToTextServiceFactory.Create`).
 
-2. **Place `huggingface_ocr.py`** in the directory returned by `IOCRPath.GetRootPath()` (or next to your assembly output). The file ships at the root of this repository.
-
-3. **First run**: model weights (`microsoft/trocr-base-printed`, ~400 MB) are downloaded automatically by the `transformers` library and cached in `~/.cache/huggingface/hub/` (controlled by the `HF_HOME` environment variable).
+3. **The library loads and runs the model entirely via ONNX Runtime** — no Python process
+   is spawned at inference time.
 
 #### GPU acceleration (optional)
 
-Install a CUDA-enabled version of PyTorch to speed up inference:
+Replace the CPU NuGet package with the GPU variant:
 
 ```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+dotnet remove package Microsoft.ML.OnnxRuntime
+dotnet add package Microsoft.ML.OnnxRuntime.Gpu
 ```
 
-No code changes are required; `transformers` detects a GPU automatically.
+No code changes are required; ONNX Runtime selects a CUDA execution provider automatically
+when a compatible GPU is present.
 
 #### Choosing a different model
 
-Pass the Hugging Face model ID to `PdfToTextServiceFactory.Create` or `HuggingFaceOcrService`:
+Export a different TrOCR variant and point `modelDirectory` at the new folder:
 
-| Model | Best for | Size |
+| Model | Best for | ONNX export size |
 |---|---|---|
 | `microsoft/trocr-base-printed` | Printed text – balanced speed/accuracy (default) | ~400 MB |
 | `microsoft/trocr-large-printed` | Printed text – higher accuracy, slower | ~1.3 GB |
@@ -229,8 +237,6 @@ All listed models are released under the **MIT licence**.
 | Variable | Where used | Purpose |
 |---|---|---|
 | `NUGET_API_KEY` | GitHub Actions secret | Authenticates NuGet package publishing |
-| `HF_HOME` | Python / `transformers` | Cache directory for downloaded model weights |
-| `HF_MODEL_ID` | `huggingface_ocr.py` fallback | Overrides the default model ID when not passed as a CLI arg |
 
 ---
 
@@ -242,7 +248,7 @@ MATTAR.OCR/
 │   ├── MATTAR.OCR.csproj          # Library project file (.NET 8.0)
 │   ├── PdfToImageService.cs       # Converts PDF pages to PNG images (PDFtoImage/PDFium)
 │   ├── PdfToTextService.cs        # Converts PDF to text via image pipeline (Tesseract)
-│   ├── HuggingFaceOcrService.cs   # Converts PDF to text via Hugging Face TrOCR (Python subprocess)
+│   ├── HuggingFaceOcrService.cs   # Converts PDF to text via TrOCR ONNX Runtime (native C#, no Python)
 │   ├── PdfToTextServiceFactory.cs # Factory: creates the right IPdfToTextService for OcrEngine
 │   └── Interfaces/
 │       ├── IOCRPath.cs            # Path abstraction (root + temp paths)
@@ -262,8 +268,6 @@ MATTAR.OCR/
 │   └── workflows/
 │       └── dotnet.yml             # CI: build, test, and publish to NuGet
 │
-├── huggingface_ocr.py             # Python TrOCR helper (called by HuggingFaceOcrService)
-├── requirements.txt               # Python dependencies for the Hugging Face engine
 ├── MATTAR.OCR.sln
 ├── LICENSE
 └── README.md
