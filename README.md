@@ -300,6 +300,7 @@ MATTAR.OCR/
 │   ├── HuggingFaceOcrService.cs   # Converts PDF to text via TrOCR ONNX Runtime (native C#, no Python)
 │   ├── TrOcrModelDownloader.cs    # Downloads TrOCR ONNX files from Hugging Face Hub with progress reporting
 │   ├── PdfToTextServiceFactory.cs # Factory: creates the right IPdfToTextService for OcrEngine
+│   ├── Usings.cs                  # Global using declarations
 │   └── Interfaces/
 │       ├── IOCRPath.cs            # Path abstraction (root + temp paths)
 │       ├── IPdfToImageService.cs  # PDF-to-image contract
