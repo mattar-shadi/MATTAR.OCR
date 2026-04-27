@@ -1,5 +1,3 @@
-using MATTAR.OCR.Interfaces;
-
 namespace MATTAR.OCR;
 
 /// <summary>

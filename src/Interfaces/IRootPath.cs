@@ -1,8 +1,7 @@
-﻿namespace MATTAR.OCR.Interfaces
+﻿namespace MATTAR.OCR.Interfaces;
+
+public interface IOCRPath
 {
-    public interface IOCRPath
-    {
-        string GetRootPath();
-        string GetTempPath();
-    }
+    string GetRootPath();
+    string GetTempPath();
 }

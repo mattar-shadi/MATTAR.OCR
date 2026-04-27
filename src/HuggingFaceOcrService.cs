@@ -1,10 +1,3 @@
-using System.Text;
-using System.Text.Json;
-using MATTAR.OCR.Interfaces;
-using Microsoft.ML.OnnxRuntime;
-using Microsoft.ML.OnnxRuntime.Tensors;
-using SkiaSharp;
-
 namespace MATTAR.OCR;
 
 /// <summary>

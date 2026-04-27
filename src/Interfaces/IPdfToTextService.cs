@@ -1,7 +1,6 @@
-﻿namespace MATTAR.OCR.Interfaces
+﻿namespace MATTAR.OCR.Interfaces;
+
+public interface IPdfToTextService
 {
-    public interface IPdfToTextService
-    {
-        string Convert(string fileName);
-    }
+    string Convert(string fileName);
 }

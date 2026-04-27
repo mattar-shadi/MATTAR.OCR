@@ -1,0 +1,10 @@
+﻿global using System.Text;
+global using System.Text.Json;
+global using MATTAR.OCR.Interfaces;
+global using Microsoft.ML.OnnxRuntime;
+global using Microsoft.ML.OnnxRuntime.Tensors;
+global using SkiaSharp;
+global using Docnet.Core;
+global using Docnet.Core.Models;
+global using System.Runtime.InteropServices;
+global using Tesseract;

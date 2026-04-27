@@ -1,6 +1,3 @@
-using MATTAR.OCR.Interfaces;
-using Tesseract;
-
 namespace MATTAR.OCR;
 
 public class PdfToTextService : IPdfToTextService

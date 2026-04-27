@@ -1,7 +1,6 @@
-﻿namespace MATTAR.OCR.Interfaces
+﻿namespace MATTAR.OCR.Interfaces;
+
+public interface IPdfToImageService
 {
-    public interface IPdfToImageService
-    {
-        List<string> ConvertToImages(string pdfFilePath);
-    }
+    List<string> ConvertToImages(string pdfFilePath);
 }
